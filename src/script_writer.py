@@ -74,22 +74,31 @@ SCRIPT_SCHEMA = types.Schema(
 )
 
 
-def _get_gemini_client():
-    """Initialize Gemini client from environment."""
+import time
+
+def _get_gemini_clients():
+    """Initialize multiple Gemini clients from environment keys."""
     api_keys_str = os.environ.get("LLM_API_KEYS", "")
     keys = [k.strip() for k in api_keys_str.split(",") if k.strip()]
     if not keys:
         raise ValueError("LLM_API_KEYS environment variable is not set")
-    return genai.Client(api_key=keys[0])
+    return [genai.Client(api_key=k) for k in keys]
 
 
-def _call_gemini(client, system_prompt, user_prompt, max_retries=3):
-    """Call Gemini with structured output and retry logic."""
+def _call_gemini(clients, system_prompt, user_prompt, max_retries=5):
+    """Call Gemini with structured output, key rotation, and model fallbacks."""
+    models_to_try = ["gemini-flash-latest", "gemini-pro-latest"]
+    
     for attempt in range(1, max_retries + 1):
+        # Rotate through the available API keys
+        client = clients[(attempt - 1) % len(clients)]
+        # Try flash first, then pro on later retries if still failing
+        model = models_to_try[0] if attempt <= 3 else models_to_try[1]
+        
         try:
-            logger.info(f"🤖 Calling Gemini (attempt {attempt}/{max_retries})...")
+            logger.info(f"🤖 Calling Gemini (attempt {attempt}/{max_retries} with {model})...")
             response = client.models.generate_content(
-                model="gemini-flash-latest",
+                model=model,
                 contents=user_prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=system_prompt,
@@ -107,6 +116,7 @@ def _call_gemini(client, system_prompt, user_prompt, max_retries=3):
                 logger.warning(
                     f"Script too short ({dialogue_count} exchanges). Retrying..."
                 )
+                time.sleep(10)
                 continue
 
             logger.info(
@@ -117,6 +127,11 @@ def _call_gemini(client, system_prompt, user_prompt, max_retries=3):
 
         except Exception as e:
             logger.warning(f"Gemini call attempt {attempt} failed: {e}")
+            if attempt < max_retries:
+                # Exponential backoff: 10s, 20s, 30s...
+                sleep_time = attempt * 15
+                logger.info(f"⏳ Sleeping {sleep_time}s before next attempt...")
+                time.sleep(sleep_time)
 
     logger.error("Failed to generate script after all retries")
     return None
@@ -134,7 +149,7 @@ def generate(topic_data, language="english"):
         dict with "title", "description", "dialogue", "visual_keywords"
         or None on failure
     """
-    client = _get_gemini_client()
+    clients = _get_gemini_clients()
     title = topic_data["title"]
     transcript = topic_data.get("transcript")
 
@@ -169,7 +184,7 @@ def generate(topic_data, language="english"):
         raise ValueError(f"Unsupported language: {language}")
 
     logger.info(f"📝 Generating {language.upper()} podcast script for: {title}")
-    script = _call_gemini(client, system_prompt, user_prompt)
+    script = _call_gemini(clients, system_prompt, user_prompt)
 
     if script:
         logger.info(

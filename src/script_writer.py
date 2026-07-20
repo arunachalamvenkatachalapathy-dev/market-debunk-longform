@@ -89,7 +89,7 @@ def _call_gemini(client, system_prompt, user_prompt, max_retries=3):
         try:
             logger.info(f"🤖 Calling Gemini (attempt {attempt}/{max_retries})...")
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-1.5-flash",
                 contents=user_prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=system_prompt,

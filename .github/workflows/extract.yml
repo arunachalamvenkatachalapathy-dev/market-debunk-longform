@@ -1,0 +1,8 @@
+name: Extract Pexels Longform
+on: workflow_dispatch
+jobs:
+  ex:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "${{ secrets.PEXELS_API_KEY }}" | base64

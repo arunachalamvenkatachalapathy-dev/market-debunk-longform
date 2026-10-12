@@ -1,10 +1,7 @@
 name: Longform Podcast Pipeline
 
 on:
-  schedule:
-    # Runs at 4:00 PM IST (10:30 UTC) every day
-    - cron: '30 10 * * *'
-  workflow_dispatch: # Allows manual triggering
+  workflow_dispatch:
 
 jobs:
   generate-longform:
@@ -36,17 +33,16 @@ jobs:
         env:
           LLM_API_KEYS: ${{ secrets.LLM_API_KEYS }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          # English YouTube Channel
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-          # Tamil YouTube Channel
           YT_TAMIL_CLIENT_ID: ${{ secrets.YT_TAMIL_CLIENT_ID }}
           YT_TAMIL_CLIENT_SECRET: ${{ secrets.YT_TAMIL_CLIENT_SECRET }}
           YT_TAMIL_REFRESH_TOKEN: ${{ secrets.YT_TAMIL_REFRESH_TOKEN }}
-          # Telegram (link sharing only)
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ENABLE_YT_UPLOAD: 'false'
+          ALLOW_PUBLICATION: 'false'
         run: |
           python github_action_run.py
 
@@ -55,7 +51,6 @@ jobs:
         run: |
           git config --global user.name "MarketDebunk-AI-Bot"
           git config --global user.email "bot@marketdebunk.com"
-
           if git diff --quiet used_topics.json; then
             echo "No new topics used. Nothing to commit."
           else
